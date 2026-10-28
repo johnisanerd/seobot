@@ -143,13 +143,13 @@ export async function fetchLinkedInPosts(params: {
   maxPosts?: number
 }): Promise<ApiResult<SocialPost[]>> {
   const result = await callActor<
-    { startUrls: Array<{ url: string }>; maxPosts: number },
-    { text: string; url: string; publishedAt: string; author: { name: string }; likes: number; comments: number }
+    { profileUrls: string[]; maxPostsPerProfile: number },
+    { text: string; postUrl: string; datePosted: string; authorName: string; numLikes: number; numComments: number; error_message?: string }
   >({
-    actorId: 'apify/linkedin-profile-scraper',
+    actorId: 'johnvc~linkedin-posts-api',
     input: {
-      startUrls: [{ url: params.profileUrl }],
-      maxPosts: params.maxPosts ?? 50,
+      profileUrls: [params.profileUrl],
+      maxPostsPerProfile: Math.min(params.maxPosts ?? 50, 200),
     },
   })
 
@@ -157,18 +157,18 @@ export async function fetchLinkedInPosts(params: {
     return result
   }
 
-  const posts: SocialPost[] = result.data.map(item => ({
+  const posts: SocialPost[] = result.data.filter(item => !item.error_message).map(item => ({
     platform: 'linkedin' as const,
     text: item.text || '',
-    url: item.url || '',
-    timestamp: item.publishedAt || new Date().toISOString(),
+    url: item.postUrl || '',
+    timestamp: item.datePosted || new Date().toISOString(),
     author: {
-      username: item.author?.name || '',
-      displayName: item.author?.name,
+      username: item.authorName || '',
+      displayName: item.authorName,
     },
     engagement: {
-      likes: item.likes,
-      comments: item.comments,
+      likes: item.numLikes,
+      comments: item.numComments,
     },
   }))
 
